@@ -110,3 +110,32 @@ class PrecipitationModel:
             self.is_trained = True
         print(f"Model loaded from {filepath}")
 
+    def classify_precip_type(self, temp: float, precip_amount: float) -> str:
+        """Classify precipitation type based on temperature."""
+        if precip_amount < 0.1:
+            return 'none'
+        elif temp < -2:
+            return 'snow'
+        elif temp < 2:
+            return 'mixed'
+        else:
+            return 'rain'
+
+    def classify_intensity(self, precip_amount: float, precip_type: str) -> str:
+        """Classify precipitation intensity."""
+        if precip_amount < 0.1:
+            return 'none'
+        elif precip_type == 'snow':
+            if precip_amount < 1:
+                return 'light'
+            elif precip_amount < 5:
+                return 'moderate'
+            else:
+                return 'heavy'
+        else:  # rain or mixed
+            if precip_amount < 2.5:
+                return 'light'
+            elif precip_amount < 7.5:
+                return 'moderate'
+            else:
+                return 'heavy'
