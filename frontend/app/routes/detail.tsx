@@ -2,6 +2,9 @@ import LineChart from '~/charts/line';
 import type { Route } from "./+types/detail";
 import { useState } from "react";
 
+import historical_data from "../raw_data/waterloo_historical.json";
+import predicted_data from "../raw_data/waterloo_predicted.json";
+
 export function meta({ }: Route.MetaArgs) {
   return [
     { title: "Weather Detail" },
@@ -9,9 +12,9 @@ export function meta({ }: Route.MetaArgs) {
   ];
 }
 
-const data = [
+const tempData = [
   {
-    "id": "projection",
+    "id": "forecast",
     "data": [
       { "x": "2025-10-05T00:00:00Z", "y": 0.18 },
       { "x": "2025-10-05T00:05:00Z", "y": 0.18 },
@@ -36,7 +39,7 @@ const data = [
     ]
   },
   {
-    "id": "historical",
+    "id": "5-year avg",
     "data": [
       { "x": "2025-10-05T00:00:00Z", "y": 0.17 },
       { "x": "2025-10-05T00:05:00Z", "y": 0.17 },
@@ -61,23 +64,51 @@ const data = [
     ]
   },
 
+]
+
+const transformPreWeatherData = (data: any) => {
+  return data.map((item: any) => ({
+    x: item.timestamp,
+    y: item.predicted_precipitation_mm
+  }));
+}
+
+const transformHisWeatherData = (data: any) => {
+  return data.map((item: any) => ({
+    x: item.timestamp,
+    y: item.historical_avg_precipitation_mm
+  }));
+}
+
+const data = [
+  {
+    "id": "forecast",
+    "data": transformPreWeatherData(predicted_data.forecast)
+  },
+  {
+    "id": "5-year avg",
+    "data": transformHisWeatherData(historical_data.historical_baseline)
+  },
 
 ]
 
 export default function Detail() {
   return (
     <>
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
-        <h2 className="text-2xl font-bold mb-6 text-gray-900 dark:text-gray-100">
-          Weather Detail
+      <div className="container mx-auto px-4 py-8">
+        <h2 className="text-white text-2xl font-bold mb-6 text-gray-900 dark:text-gray-100 text-center">
+          Waterloo, ON, Canada, 2025-12-20 - 2025-12-27
         </h2>
-        <p className="text-gray-600 dark:text-gray-400">
-          Weather information will be displayed here.
+        <p className="text-gray-200 dark:text-gray-400 p-2 m-1">
+          Summary: Precipitation levels are lower than in previous years, temperatures are higher than usual, while air pressure and visibility remain consistent with past years.
         </p>
-        <LineChart data={data} xAxisLabel="Time" yAxisLabel="Precipitation" />
-        <LineChart data={data} xAxisLabel="Time" yAxisLabel="Temperature" />
-        <LineChart data={data} xAxisLabel="Time" yAxisLabel="Pressure" />
-        <LineChart data={data} xAxisLabel="Time" yAxisLabel="Cloudiness" />
+
+        <div className="flex justify-center align-center flex-wrap gap-4">
+          <LineChart data={data} xAxisLabel="Time" yAxisLabel="Precipitation" />
+          <LineChart data={tempData} xAxisLabel="Time" yAxisLabel="Temperature" />
+          <LineChart data={tempData} xAxisLabel="Time" yAxisLabel="Pressure" />
+          <LineChart data={tempData} xAxisLabel="Time" yAxisLabel="Cloudiness" />
+        </div>
       </div>
     </>
   );
