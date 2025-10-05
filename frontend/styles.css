@@ -127,7 +127,7 @@ body {
     background-color: #1d4ed8;
 }
 
-#lat{
+/* #lat{
     position: absolute;
     z-index: 999999;
     top: 100px;
@@ -140,6 +140,15 @@ body {
     z-index: 999999;
     top: 150px;
     left: 50px;
+    background-color: #fff;
+    color: #666;
+} */
+
+#search{
+    position: absolute;
+    z-index: 999999;
+    top: 0;
+    left: 600px;
     background-color: #fff;
     color: #666;
 }

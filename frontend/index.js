@@ -1,7 +1,15 @@
 let map;
 let marker;
 let infoWindow;
-let center = { lat: 40.749933, lng: -73.98633 }; // New York City
+// let center = { lat: 40.749933, lng: -73.98633 }; // New York City
+let latlong = {
+  lat: 40.749933,
+  lng: -73.98633
+};
+let range = {
+  start: "2025-10-01",
+  end: "2025-10-07"
+};
 
 async function initMap() {
     // Request needed libraries.
@@ -95,14 +103,14 @@ async function initMap() {
             return;
           }
 
-          const lat = place.geometry.location.lat();
-          const lng = place.geometry.location.lng();
+          latlong.lat = place.geometry.location.lat();
+          latlong.lng = place.geometry.location.lng();
 
-          console.log("Latitude:", lat);
-          console.log("Longitude:", lng);
+          console.log("Latitude:", latlong.lat);
+          console.log("Longitude:", latlong.lng);
 
-          document.getElementById("lat").textContent = lat.toFixed(6);
-          document.getElementById("lng").textContent = lng.toFixed(6);
+          document.getElementById("lat").textContent = latlong.lat.toFixed(6);
+          document.getElementById("lng").textContent = latlong.lng.toFixed(6);
         });
   }
 
@@ -143,6 +151,9 @@ async function initMap() {
       console.log("Start Date:", startDateObj.toISOString());
       console.log("End Date:", endDateObj.toISOString());
 
+      range.start = startDateObj.toISOString();
+      range.end = endDateObj.toISOString();
+
       // TODO: Fetch weather data for the selected date range
       // You can add your API call here
     });
@@ -161,5 +172,62 @@ function updateInfoWindow(content, center) {
         shouldFocus: false,
     });
 }
+
+// Search button click handler
+window.onSearchClick = async function() {
+  console.log("Search button clicked");
+  console.log("Current location:", latlong);
+  console.log("Current date range:", range);
+
+  // Validate that location is set
+  if (!latlong.lat || !latlong.lng) {
+    alert("Please select a location first");
+    return;
+  }
+
+  // Validate that date range is set
+  if (!range.start || !range.end) {
+    alert("Please select a date range first");
+    return;
+  }
+
+  try {
+    // Construct the API endpoint URL
+    const apiUrl = `http://localhost:8000/weather`;
+    
+    // Prepare query parameters
+    const params = {
+      lat: latlong.lat,
+      lng: latlong.lng,
+      start_date: range.start,
+      end_date: range.end
+    };
+
+    console.log("Sending GET request to:", apiUrl);
+    console.log("With parameters:", params);
+
+    // Make the GET request using axios
+    const response = await axios.get(apiUrl, { params });
+
+    console.log("Response received:", response.data);
+    
+    // TODO: Process and display the weather data
+    alert("Weather data received! Check console for details.");
+
+  } catch (error) {
+    console.error("Error fetching weather data:", error);
+    
+    if (error.response) {
+      // Server responded with error status
+      alert(`Error: ${error.response.status} - ${error.response.data.message || 'Server error'}`);
+    } else if (error.request) {
+      // Request was made but no response received
+      alert("Error: No response from server. Make sure the backend is running.");
+    } else {
+      // Something else happened
+      alert(`Error: ${error.message}`);
+    }
+  }
+};
 
 initMap();
