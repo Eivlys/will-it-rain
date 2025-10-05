@@ -7,10 +7,10 @@
 uvicorn main:app --reload --port 8000
 ```
 
-'''bash
+```bash
 cd backend/current-weather-service
 node server.js
-'''
+```
 
 2. Start the frontend
 ```bash
