@@ -9,6 +9,6 @@ uvicorn main:app --reload --port 8000
 
 2. Start the frontend
 ```bash
-npm run dev
+python3 -m http.server 8080
 ```
 
