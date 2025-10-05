@@ -105,36 +105,46 @@ class PrecipitationModel:
     def predict(self, X: pd.DataFrame, n_samples=50) -> tuple:
         """
         Make prediction with uncertainty estimate using Monte Carlo Dropout.
-        
+    
         Args:
             X: Feature dataframe
             n_samples: Number of forward passes for uncertainty estimation
-            
+        
         Returns:
             tuple: (mean_prediction, std_prediction)
         """
+        print(f"🔄 PREDICT METHOD CALLED: X shape={X.shape}, n_samples={n_samples}")
+    
         if not self.is_trained:
             raise ValueError("Model not trained")
-        
+    
+        print(f"✓ Model is trained, scaling features...")
         X_scaled = self.scaler.transform(X)
-        
+    
         if len(X_scaled) < self.sequence_length:
             raise ValueError(f"Need at least {self.sequence_length} rows for prediction")
-        
+    
+        print(f"✓ Creating sequence from last {self.sequence_length} rows...")
         X_seq = X_scaled[-self.sequence_length:].reshape(1, self.sequence_length, -1)
-        
+        print(f"✓ Sequence shape: {X_seq.shape}")
+    
         # Monte Carlo Dropout: run prediction multiple times with dropout enabled
+        print(f"Starting Monte Carlo Dropout with {n_samples} samples...")
         predictions = []
-        for _ in range(n_samples):
+        for i in range(n_samples):
+            if i % 10 == 0:
+                print(f"  Sample {i}/{n_samples}...")
             # training=True keeps dropout active during inference
             pred = self.model(X_seq, training=True)
             predictions.append(pred.numpy()[0][0])
-        
+    
+        print(f"✓ Completed {n_samples} predictions, calculating statistics...")
         mean_pred = np.mean(predictions)
         std_pred = np.std(predictions)
-        
-        return mean_pred, std_pred
     
+        print(f"✓ PREDICTION COMPLETE: mean={mean_pred:.4f}, std={std_pred:.4f}")
+        return mean_pred, std_pred
+
     def save(self, filepath: str):
     # Save as .keras format instead of .h5
         self.model.save(filepath.replace('.pkl', '_lstm.keras'))
