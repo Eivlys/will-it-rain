@@ -14,6 +14,6 @@ node server.js
 
 2. Start the frontend
 ```bash
-python3 -m http.server 8080
+npm run dev
 ```
 

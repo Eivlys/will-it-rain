@@ -2,6 +2,7 @@ import type { Route } from "./+types/home";
 import { Search } from "../search/search";
 import { useState, useEffect } from "react";
 import * as feather from "feather-icons";
+import { useNavigate } from 'react-router';
 
 export function meta({ }: Route.MetaArgs) {
   return [
@@ -22,6 +23,7 @@ interface SearchHistoryItem {
 }
 
 export default function Home() {
+  const navigate = useNavigate();
   const [searchHistory, setSearchHistory] = useState<SearchHistoryItem[]>([
     {
       id: "1",
@@ -108,7 +110,7 @@ export default function Home() {
                 key={item.id}
                 className="bg-white/70 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow relative"
               >
-                <div className="flex justify-between items-start item-history">
+                <div className="flex justify-between items-start item-history" onClick={() => navigate("/detail")}>
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-3">
                       <i
