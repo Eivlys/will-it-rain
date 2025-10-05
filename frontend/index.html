@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Will it Rain</title>
+
+    <script
+      src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBrNnw4HusfjQezVaLSctpSOGtgTCYU5RM&libraries=places"
+      async
+      defer
+    ></script>
+    <link rel="stylesheet" type="text/css" href="./styles.css" />
+    <script type="module" src="./index.js"></script>
+    
+  </head>
+  <body>
+    <!-- <div class="place-autocomplete-card" id="place-autocomplete-card">
+      <p>Search for a place here:</p>
+    </div> -->
+    <input id="autocomplete" placeholder="Enter a location" type="text" />
+    
+    <div id="date-range-container">
+      <label for="start-date">Start Date:</label>
+      <input id="start-date" type="date" />
+      
+      <label for="end-date">End Date:</label>
+      <input id="end-date" type="date" />
+      
+      <button id="apply-date-range">Apply</button>
+    </div>
+
+    <div id="map"></div>
+
+</body>
+</html>
