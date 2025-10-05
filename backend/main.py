@@ -6,7 +6,8 @@ from typing import Optional
 import requests
 from Prediction_Modeller.prec_modeler import PrecipitationModel
 from Data_Collector.data_fetcher import DataFetcher
-
+from Data_Collector.data_rod_fetcher import fetch_datarods_historical_average
+from Data_Collector.giovanni_fetcher import fetch_giovanni_historical_average
 app = FastAPI()
 
 app.add_middleware(
@@ -236,6 +237,41 @@ async def get_prediction(lat, lon, target_dt, hours):
     
     print(f"Returning {len(results)} predictions")
     return {"predictions": results, "location": {"latitude": lat, "longitude": lon}}
+
+@app.post("/historical-baseline")
+async def get_historical_baseline(req: PredictionRequest):
+    """
+    Get historical average precipitation for comparison with predictions.
+    """
+    try:
+        # Convert timestamps
+        target_dt = datetime.fromisoformat(req.target_time.replace('Z', '+00:00'))
+        end_dt = datetime.fromisoformat(req.end_time.replace('Z', '+00:00'))
+        
+        start_date = target_dt.strftime('%Y-%m-%d')
+        end_date = end_dt.strftime('%Y-%m-%d')
+        
+        print(f"Fetching historical baseline for {start_date} to {end_date}")
+        
+        # Fetch 5-year historical average using MERRA-2
+        historical_data = fetch_giovanni_historical_average(
+            req.latitude,
+            req.longitude,
+            start_date,
+            end_date,
+            years_back=5
+        )
+        
+        return {
+            "location": {"latitude": req.latitude, "longitude": req.longitude},
+            "date_range": {"start": start_date, "end": end_date},
+            "historical_baseline": historical_data.to_dict('records')
+        }
+        
+    except Exception as e:
+        print(f"ERROR in historical_baseline: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 if __name__ == "__main__":
     import uvicorn
