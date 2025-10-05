@@ -4,39 +4,56 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from Data_Collector.data_fetcher import DataFetcher
 from Prediction_Modeller.prec_modeler import PrecipitationModel
+import pandas as pd
 
 print("=" * 50)
-print("TRAINING PRECIPITATION MODEL")
+print("TRAINING IMPROVED PRECIPITATION MODEL")
 print("=" * 50)
 
-# Fetch training data
-print("\n1. Fetching 2 years of NASA data...")
+# Multiple locations for diverse training data
+locations = [
+    {"name": "Waterloo", "lat": 43.4643, "lon": -80.5204},
+    {"name": "Toronto", "lat": 43.6532, "lon": -79.3832},
+    {"name": "Vancouver", "lat": 49.2827, "lon": -123.1207},
+    {"name": "Montreal", "lat": 45.5017, "lon": -73.5673},
+]
+
+# Fetch 5 years of data
+print("\n1. Fetching 5 years of data from multiple locations...")
 fetcher = DataFetcher()
-df = fetcher.fetch_data(
-    latitude=43.4643,
-    longitude=-80.5204,
-    start_date='20230101',
-    end_date='20241231',
-)
+all_data = []
 
-if df is None or len(df) == 0:
+for loc in locations:
+    print(f"   Fetching {loc['name']}...")
+    df = fetcher.fetch_data(
+        latitude=loc['lat'],
+        longitude=loc['lon'],
+        start_date='20200101',
+        end_date='20241231',
+    )
+    if df is not None and len(df) > 0:
+        all_data.append(df)
+        print(f"   ✓ {loc['name']}: {len(df)} rows")
+
+if len(all_data) == 0:
     print("ERROR: Failed to fetch data")
     exit(1)
 
-print(f"   ✓ Fetched {len(df)} rows")
-print(f"   ✓ Features: {list(df.columns)}")
+# Combine all data
+df_combined = pd.concat(all_data, ignore_index=False)
+print(f"\n   ✓ Total: {len(df_combined)} rows from {len(all_data)} locations")
 
 # Engineer features
 print("\n2. Engineering features...")
 model = PrecipitationModel()
-df_engineered = model.engineer_features(df)
+df_engineered = model.engineer_features(df_combined)
 print(f"   ✓ Final dataset: {len(df_engineered)} rows, {len(df_engineered.columns)} features")
 
 # Prepare training data
 X = df_engineered.drop('PRECTOTCORR', axis=1)
 y = df_engineered['PRECTOTCORR']
 
-print(f"\n3. Training model...")
+print(f"\n3. Training improved model...")
 print(f"   Features: {list(X.columns)}")
 metrics = model.train(X, y)
 
@@ -47,4 +64,5 @@ print("\n" + "=" * 50)
 print("TRAINING COMPLETE!")
 print(f"R² Score: {metrics['r2_score']:.3f}")
 print(f"MSE: {metrics['mse']:.3f}")
+print(f"Training samples: {len(X)}")
 print("=" * 50)

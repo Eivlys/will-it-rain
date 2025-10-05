@@ -1,53 +1,72 @@
 import requests
 import pandas as pd
-from datetime import datetime, timedelta
-from typing import  Dict, List, Optional
-import os
-from dotenv import load_dotenv 
+from datetime import datetime
+from typing import Optional
 
-load_dotenv()
 class DataFetcher:
     def __init__(self):
-        self.base_url = "https://power.larc.nasa.gov/api/temporal/"
-        self.api_key = os.getenv("NASA_API_KEY", "DEMO_KEY")
-    def fetch_data(self, latitude, longitude, start_date, end_date, parameters=None):
-        if parameters is None:
-            parameters = [
-                'PRECTOTCORR',  # Precipitation
-                'T2M',           # Temperature at 2m
-                'RH2M',          # Relative Humidity
-                'PS',            # Surface Pressure
-                'WS10M',         # Wind Speed at 10m
-                'CLOUD_AMT',     # Cloud Amount
-            ]
+        self.base_url = "https://power.larc.nasa.gov/api/temporal/hourly/point"
+        self.parameters = [
+            'PRECTOTCORR',
+            'T2M',
+            'RH2M',
+            'PS',
+            'WS10M',
+        ]
+        
+    def fetch_data(
+        self,
+        latitude: float,
+        longitude: float,
+        start_date: str,
+        end_date: str
+    ) -> Optional[pd.DataFrame]:
+        """
+        Fetch weather data from NASA POWER API.
+        
+        Args:
+            latitude: Latitude coordinate
+            longitude: Longitude coordinate
+            start_date: Start date in YYYYMMDD format
+            end_date: End date in YYYYMMDD format
+            
+        Returns:
+            DataFrame with weather data or None if fetch fails
+        """
         params = {
-            'parameters': ','.join(parameters),
+            'parameters': ','.join(self.parameters),
             'community': 'RE',
             'longitude': longitude,
             'latitude': latitude,
             'start': start_date,
             'end': end_date,
-            'format': 'JSON',
+            'format': 'JSON'
         }
-        url = f"{self.base_url}hourly/point"
-
-        try:
-            response = requests.get(url, params=params, timeout=30)
-            response.raise_for_status()
-            data = response.json()
-    
-            df_dict = {}
-            for param in parameters:
-                if param in data['properties']['parameter']:
-                    df_dict[param] = data['properties']['parameter'][param]
-
-# Create DataFrame
-            df = pd.DataFrame(df_dict)
-            df.index = pd.to_datetime(df.index, format='%Y%m%d%H')
-
-            return df    
-        except requests.exceptions.RequestException as e:
-            print(f"Error fetching data: {e}")
-            return None 
         
-
+        try:
+            print(f"Fetching NASA data for ({latitude}, {longitude}) from {start_date} to {end_date}...")
+            response = requests.get(self.base_url, params=params, timeout=60)
+            response.raise_for_status()
+            
+            data = response.json()
+            
+            if 'properties' not in data or 'parameter' not in data['properties']:
+                print("ERROR: Invalid response structure")
+                return None
+            
+            # Convert to DataFrame
+            param_data = data['properties']['parameter']
+            df = pd.DataFrame(param_data)
+            
+            # Convert index to datetime
+            df.index = pd.to_datetime(df.index, format='%Y%m%d%H')
+            
+            print(f"✓ Fetched {len(df)} rows with {len(df.columns)} parameters")
+            return df
+            
+        except requests.exceptions.RequestException as e:
+            print(f"ERROR fetching data: {e}")
+            return None
+        except Exception as e:
+            print(f"ERROR processing data: {e}")
+            return None

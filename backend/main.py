@@ -1,17 +1,23 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from datetime import datetime, timedelta
+from typing import Optional
 import requests
 from Prediction_Modeller.prec_modeler import PrecipitationModel
 from Data_Collector.data_fetcher import DataFetcher
-import pickle
 
 app = FastAPI()
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # Load trained model
-# Load trained model - REPLACE THIS SECTION
-# Load trained model - REPLACE THE ENTIRE TRY/EXCEPT BLOCK
-# At the top after imports, REPLACE the model loading section:
 model = PrecipitationModel()
 try:
     model.load('trained_precipitation_model.pkl')
@@ -22,8 +28,9 @@ except Exception as e:
 class PredictionRequest(BaseModel):
     latitude: float
     longitude: float
-    target_time: str  # ISO format datetime
-    hours_ahead: int = 24
+    target_time: str  # ISO format datetime (start time)
+    end_time: Optional[str] = None  # Optional end time
+    hours_ahead: Optional[int] = 24  # Default if no end_time
 
 @app.get("/")
 def root():
@@ -31,12 +38,21 @@ def root():
 
 @app.post("/predict")
 async def predict_weather(req: PredictionRequest):
-    print(f"RECEIVED REQUEST: {req}")  # ADD THIS
+    print(f"RECEIVED REQUEST: {req}")
     try:
         target_dt = datetime.fromisoformat(req.target_time.replace('Z', '+00:00'))
-        print(f"Parsed target_dt: {target_dt}")  # ADD THIS
+        print(f"Parsed target_dt: {target_dt}")
         now = datetime.now()
-        print(f"Now: {now}, Is past? {target_dt < now}")  # ADD THIS
+        print(f"Now: {now}, Is past? {target_dt < now}")
+        
+        # Calculate hours_ahead from end_time if provided
+        if req.end_time:
+            end_dt = datetime.fromisoformat(req.end_time.replace('Z', '+00:00'))
+            hours_ahead = int((end_dt - target_dt).total_seconds() / 3600)
+            hours_ahead = max(1, min(hours_ahead, 72))  # Limit to 1-72 hours
+            print(f"Calculated hours_ahead from end_time: {hours_ahead}")
+        else:
+            hours_ahead = req.hours_ahead
 
         # Past date = historical lookup
         if target_dt < now:
@@ -44,9 +60,10 @@ async def predict_weather(req: PredictionRequest):
         
         # Future date = ML prediction
         else:
-            return await get_prediction(req.latitude, req.longitude, target_dt, req.hours_ahead)
+            return await get_prediction(req.latitude, req.longitude, target_dt, hours_ahead)
             
     except Exception as e:
+        print(f"ERROR in predict_weather: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 async def get_historical(lat, lon, target_dt):
@@ -113,19 +130,19 @@ async def get_prediction(lat, lon, target_dt, hours):
     df = fetcher.fetch_data(lat, lon, start, end)
     print(f"Fetched {len(df) if df is not None else 0} rows")
     
-    if df is None or len(df) < 10:
-        raise HTTPException(status_code=503, detail="Insufficient data for prediction")
+    if df is None or len(df) < 24:
+        raise HTTPException(status_code=503, detail="Insufficient data for LSTM prediction (need 24+ hours)")
     
     # Engineer features
     print("Engineering features...")
     df_eng = model.engineer_features(df)
     print(f"Engineered features: {len(df_eng)} rows, {len(df_eng.columns)} columns")
     
-    if len(df_eng) == 0:
-        raise HTTPException(status_code=503, detail="Feature engineering failed")
+    if len(df_eng) < 24:
+        raise HTTPException(status_code=503, detail="Feature engineering produced insufficient data")
     
-    # Use most recent data point as base
-    X_latest = df_eng.drop('PRECTOTCORR', axis=1).iloc[-1:] if 'PRECTOTCORR' in df_eng.columns else df_eng.iloc[-1:]
+    # LSTM needs sequence of data
+    X_latest = df_eng.drop('PRECTOTCORR', axis=1) if 'PRECTOTCORR' in df_eng.columns else df_eng
     print(f"X_latest shape: {X_latest.shape}")
     
     # Make predictions
@@ -133,9 +150,12 @@ async def get_prediction(lat, lon, target_dt, hours):
     for i in range(min(hours, 24)):
         pred_time = target_dt + timedelta(hours=i)
         
-        # Predict precipitation amount
-        precip_pred = model.predict(X_latest)[0]
-        precip_pred = max(0, precip_pred)  # No negative precipitation
+        # Predict with uncertainty quantification
+        precip_mean, precip_std = model.predict(X_latest, n_samples=50)
+        precip_pred = max(0, float(precip_mean))
+        
+        # Calculate confidence: lower std = higher confidence
+        confidence = max(50, min(95, 95 - (precip_std * 9)))
         
         # Classify type and intensity
         temp = current.get('temperature', 10)
@@ -145,11 +165,17 @@ async def get_prediction(lat, lon, target_dt, hours):
         results.append({
             "timestamp": pred_time.isoformat(),
             "precipitation_mm": round(float(precip_pred), 2),
+            "precipitation_std": round(float(precip_std), 2),
+            "confidence_percent": round(float(confidence), 0),
             "type": precip_type,
             "intensity": intensity,
-            "temperature_c": round(temp, 1),
+            "temperature_c": round(float(temp), 1),
             "is_historical": False
         })
     
     print(f"Returning {len(results)} predictions")
     return {"predictions": results, "location": {"latitude": lat, "longitude": lon}}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
